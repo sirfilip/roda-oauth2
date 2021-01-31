@@ -140,6 +140,8 @@ Capybara.app = App.app
 describe App do
   include Capybara::DSL
 
+  after { Capybara.reset_sessions! }
+
   describe 'register' do
     before do
       DB[:users].delete
@@ -245,5 +247,15 @@ describe App do
       click_on 'Login'
       assert page.has_current_path?('/')
     end
+  end
+
+  describe 'dasboard' do
+    describe 'unauthorized access' do
+      it 'redirects to /login' do
+        visit '/'
+        assert page.has_current_path?('/login')
+      end
+    end
+
   end
 end

@@ -138,10 +138,13 @@ module Feature
   end
 end
 
+ENV['APP_SESSION_SECRET'] ||= 'super secret' * 64
+
 class App < Roda
   plugin :render, escape: true
   plugin :public
   plugin :halt
+  plugin :sessions, secret: ENV.delete('APP_SESSION_SECRET')
 
   route do |r|
     r.public 
@@ -188,6 +191,7 @@ class App < Roda
           Hasher.new,
         ).(r.params['username'], r.params['password'])
           in Success(User => user) 
+            r.session['auth_id'] = user.id
             r.redirect("/")
           in Failure(:wrong_username_and_password_combination)
             @error = 'Wrong username and password combo'
@@ -197,6 +201,11 @@ class App < Roda
           r.halt(500, 'Server Error')
         end
       end
+    end
+
+    current_user = r.session['auth_id'] && User.find(r.session['auth_id'])
+    unless current_user
+      r.redirect('/login')
     end
 
     r.root do
