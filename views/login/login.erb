@@ -1,0 +1,23 @@
+<div class="container">
+  <h2>Login</h2>
+  <form method="POST">
+
+    <% if @error %>
+      <div class="alert alert-danger">
+        <%= @error %>
+      </div>
+    <% end %>
+      
+    <div class="mb-3">
+      <label class="form-label">Username</label>
+      <input name="username" class="form-control" />
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      <input name="password" class="form-control" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Login</button>
+  </form>
+</div>

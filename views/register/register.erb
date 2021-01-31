@@ -1,0 +1,37 @@
+<div class="container">
+  <h2>Register</h2>
+  
+  <form method="post">
+    <div class="mb-3">
+      <label class="form-label">Username</label>
+      <input name="username" class="form-control" />
+      <% if @errors[:username] %>
+        <% @errors[:username].each do |error| %>
+        <small><%= error.capitalize %></small>
+        <% end %>
+      <% end %>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Email</label>
+      <input name="email" class="form-control" />
+      <% if @errors[:email] %>
+        <% @errors[:email].each do |error| %>
+        <small><%= error.capitalize %></small>
+        <% end %>
+      <% end %>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      <input name="password" class="form-control" type="password" />
+      <% if @errors[:password] %>
+        <% @errors[:password].each do |error| %>
+        <small><%= error.capitalize %></small>
+        <% end %>
+      <% end %>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Register</button>
+  </form>
+</div>
