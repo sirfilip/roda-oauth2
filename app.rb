@@ -4,6 +4,7 @@ require 'sequel'
 require 'bcrypt'
 require 'dry/schema'
 require 'dry/monads'
+require 'uuid'
 require 'byebug'
 
 include Dry::Monads[:result, :maybe]
@@ -20,9 +21,19 @@ end
 
 DB.create_table?(:users) do
   primary_key :id
-  String :username, unique: true
-  String :email, unique: true
-  String :password
+  String      :username, unique: true
+  String      :email, unique: true
+  String      :password
+end
+
+DB.create_table?(:clients) do
+  primary_key :id
+  Numeric     :user_id
+  String      :name, unique: true
+  String      :callback_url
+  String      :client_id
+  String      :client_secret
+  add_unique_constraint [:client_id, :client_secret]
 end
 
 class Hasher
@@ -40,6 +51,21 @@ class User < Sequel::Model(DB)
     user = self.where(criteria).first
     if user
       Some(user)
+    else
+      None()
+    end
+  end
+end
+
+class Client < Sequel::Model(DB)
+  def self.owned_by(user)
+    self.where(user_id: user)
+  end
+
+  def self.find_by(criteria)
+    client = self.where(criteria).first
+    if client
+      Some(client)
     else
       None()
     end
@@ -136,6 +162,68 @@ module Feature
       end
     end
   end
+
+  module CreateClient
+    class Form
+
+      def initialize(repo)
+        @repo = repo
+      end
+
+      Schema = Dry::Schema.Params do
+        required(:name) { filled? & str? & size?(2..255) }
+        required(:callback_url) { filled? & str? & size?(5..255) }
+      end
+
+      def submit(params)
+        errors = Schema.(params).errors(full: true).to_h
+        unless errors[:name]
+          @repo.find_by(name: params[:name]).bind do
+            errors[:name] = [ 'name is already taken' ]
+          end
+        end
+
+        unless errors[:callback_url]
+          begin
+            uri = URI.parse(params[:callback_url])
+            unless uri.kind_of?(URI::HTTPS)
+              errors[:callback_url] = [ 'callback_url is invalid' ]
+            end
+          rescue URI::InvalidURIError
+            errors[:callback_url] = [ 'callback_url is invalid' ]
+          end
+        end
+        
+        if errors.any?
+          Failure[:validation_failure, errors]
+        else
+          Success()
+        end
+      end
+    end
+    class Service
+      def initialize(form, repo, uuidgen)
+        @form = form
+        @repo = repo
+        @uuidgen = uuidgen
+      end
+
+      def call(user, name, callback_url)
+        @form.submit({name: name, callback_url: callback_url}).bind do
+          client_id = @uuidgen.generate
+          client_secret = @uuidgen.generate
+          Success(@repo.create(
+            name: name, 
+            callback_url: callback_url,
+            client_id: client_id,
+            client_secret: client_secret,
+            user_id: user.id,
+          ))
+        end
+      end
+    end
+  end
+
 end
 
 ENV['APP_SESSION_SECRET'] ||= 'super secret' * 64
@@ -145,9 +233,13 @@ class App < Roda
   plugin :public
   plugin :halt
   plugin :sessions, secret: ENV.delete('APP_SESSION_SECRET')
+  plugin :flash
 
   route do |r|
     r.public 
+
+    @success = flash['success']
+    @warn = flash['warn']
 
     r.on 'register' do
       @title = 'Register'
@@ -203,13 +295,39 @@ class App < Roda
       end
     end
 
-    current_user = r.session['auth_id'] && User.find(r.session['auth_id'])
+    current_user = r.session['auth_id'] && User.find(r.session['auth_id']).first
     unless current_user
       r.redirect('/login')
     end
 
     r.root do
-      "It works!"
+      @success || 'Dashboard'
+    end
+
+    r.on 'clients' do
+      r.get 'new' do
+        @title = 'create client'
+        view('clients/new')
+      end
+
+      r.post do
+        @title = 'create client'
+        case Feature::CreateClient::Service.new(
+          Feature::CreateClient::Form.new(Client),
+          Client,
+          UUID.new,
+        ).call(current_user, r.params['name'], r.params['callback_url'])
+          in Failure[:validation_failure, errors]
+            @errors = errors
+            view('clients/new')
+          in Success(Client => client)
+            flash['success'] = 'Client successfully created'
+            r.redirect('/')
+        else
+          log.warn("Unknown branch")
+          r.halt(500)
+        end
+      end
     end
   end
 end

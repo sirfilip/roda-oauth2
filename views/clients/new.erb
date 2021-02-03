@@ -1,0 +1,20 @@
+<div class="container">
+  <form method="post" action="/clients">
+    <h2>Add Client</h2>
+    <div class="mb-3">
+      <label class="form-label">Name</label>
+      <input name="name" class="form-control" />
+      <% if @errors && @errors[:name] %>
+        <small><%= @errors[:name].first %></small>
+      <% end %>
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Callback URL</label>
+      <input name="callback_url" class="form-control"/>
+      <% if @errors && @errors[:callback_url] %>
+        <small><%= @errors[:callback_url].first %></small>
+      <% end %>
+    </div>
+    <button type="submit">Add</button>
+  </form>
+</div>

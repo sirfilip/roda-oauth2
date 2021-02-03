@@ -38,6 +38,8 @@ GEM
       dry-inflector (~> 0.1, >= 0.1.2)
       dry-logic (~> 1.0, >= 1.0.2)
     erubi (1.10.0)
+    macaddr (1.7.2)
+      systemu (~> 2.6.5)
     nio4r (2.5.4)
     puma (5.1.1)
       nio4r (~> 2.0)
@@ -46,7 +48,10 @@ GEM
       rack
     sequel (5.40.0)
     sqlite3 (1.4.2)
+    systemu (2.6.5)
     tilt (2.0.10)
+    uuid (2.3.9)
+      macaddr (~> 1.0)
 
 PLATFORMS
   x86_64-darwin-20
@@ -62,6 +67,7 @@ DEPENDENCIES
   sequel (~> 5.40)
   sqlite3 (~> 1.4)
   tilt (~> 2.0)
+  uuid (~> 2.3, >= 2.3.8)
 
 BUNDLED WITH
    2.2.3

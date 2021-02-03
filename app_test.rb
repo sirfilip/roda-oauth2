@@ -17,6 +17,12 @@ def login_svc
   Feature::Login::Service.new(form, repo, Hasher.new)
 end
 
+def add_client_svc
+  repo = Client
+  form = Feature::AddClient::Form.new(repo)
+  Feature::CreateClient::Service.new(form, repo, UUID.new)
+end
+
 describe 'Features' do
   describe 'Register' do
     before do
@@ -254,6 +260,65 @@ describe App do
       it 'redirects to /login' do
         visit '/'
         assert page.has_current_path?('/login')
+      end
+    end
+    
+    describe 'autorized' do
+      before do
+        DB[:users].delete
+        visit '/register'
+        fill_in :username, with: 'username'
+        fill_in :email, with: 'username@example.com'
+        fill_in :password, with: 'password'
+        click_on 'Register'
+        
+        visit '/login'
+        fill_in :username, with: 'username'
+        fill_in :password, with: 'password'
+        click_on 'Login'
+        @current_user = User.find_by(username: 'username').value!
+      end
+
+      it 'shows the list of clients' do
+      end
+
+      describe 'create client' do
+        it 'has the correct form elements' do
+          visit '/clients/new'
+          assert page.has_selector?('input[name=name]')
+          assert page.has_selector?('input[name=callback_url]')
+        end
+
+        describe 'validation' do
+          {
+            'empty name and callback_url' => {
+              given: {},
+              want: ['name must be filled', 'callback_url must be filled' ],
+            },
+            'invalid callback url' => {
+              given: { callback_url: 'invalid url'},
+              want: ['callback_url is invalid' ],
+            },
+          }.each do |title, t|
+              it title do
+                visit '/clients/new'
+                fill_in :name, with: t[:given][:name]
+                fill_in :callback_url, with: t[:given][:callback_url]
+                click_on 'Add'
+                t[:want].each do |msg|
+                  assert page.has_content?(msg)
+                end
+              end
+            end
+        end
+
+        it 'creates new client' do
+          visit '/clients/new'
+          fill_in :name, with: 'New client'
+          fill_in :callback_url, with: 'https://example.com'
+          click_on 'Add'
+          assert page.has_content?('Client successfully created')
+        end
       end
     end
 
