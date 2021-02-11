@@ -137,8 +137,6 @@ describe 'Features' do
       end
     end
   end
-  
-
 end
 
 Capybara.app = App.app
@@ -264,22 +262,58 @@ describe App do
     end
     
     describe 'autorized' do
-      before do
-        DB[:users].delete
+
+      def register_user(username:, email:, password:)
         visit '/register'
-        fill_in :username, with: 'username'
-        fill_in :email, with: 'username@example.com'
-        fill_in :password, with: 'password'
+        fill_in :username, with: username
+        fill_in :email, with: email
+        fill_in :password, with: password
         click_on 'Register'
-        
+      end
+      
+      def login_user(username:, password:)
         visit '/login'
-        fill_in :username, with: 'username'
-        fill_in :password, with: 'password'
+        fill_in :username, with: username
+        fill_in :password, with: password
         click_on 'Login'
+      end
+
+      before do
+        DB[:clients].delete
+        DB[:users].delete
+
+        register_user(username: 'username', email: 'username@example.com', password: 'password')
+        login_user(username: 'username', password: 'password')
+        
         @current_user = User.find_by(username: 'username').value!
       end
 
+      def create_client(name, callback_url)
+          visit '/clients/new'
+          fill_in :name, with: name
+          fill_in :callback_url, with: callback_url
+          click_on 'Add'
+      end
+
+
       it 'shows the list of clients' do
+        create_client('New client', 'https://example.com')
+        visit '/'
+        assert page.has_content?('New client'), 'shows the client name'
+        assert page.has_content?('https://example.com'), 'shows the client url'
+      end
+
+      describe 'delete client' do
+        before do
+          create_client('New client', 'https://example.com')
+        end
+
+        it 'deletes client' do
+          visit '/'
+          page.find('a.delete_client').click
+          assert page.has_content?('Client Deleted')
+          refute page.has_content?('New client')
+        end
       end
 
       describe 'create client' do
@@ -321,6 +355,5 @@ describe App do
         end
       end
     end
-
   end
 end

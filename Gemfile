@@ -15,3 +15,4 @@ gem "dry-monads", "~> 1.3"
 gem "puma", "~> 5.1.1"
 gem 'byebug'
 gem 'uuid', '~> 2.3', '>= 2.3.8'
+gem 'pundit', '~> 1.1'

@@ -1,0 +1,31 @@
+<div class="container">
+  <div class="alert alert-success">
+    <%= @success %>
+  </div>
+
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Callback</th>
+        <th>Client ID</th>
+        <th>Client Secret</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @clients.each do |client| %>
+        <tr>
+          <td><%= client.name %></td>
+          <td><%= client.callback_url %></td>
+          <td><%= client.client_id %></td>
+          <td><%= client.client_secret %></td>
+          <td>
+            <a href="/clients/<%= client.id %>/delete" class="btn delete_client">Delete</a>
+          </th>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
+

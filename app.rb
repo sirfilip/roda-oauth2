@@ -5,6 +5,7 @@ require 'bcrypt'
 require 'dry/schema'
 require 'dry/monads'
 require 'uuid'
+require 'pundit'
 require 'byebug'
 
 include Dry::Monads[:result, :maybe]
@@ -59,7 +60,7 @@ end
 
 class Client < Sequel::Model(DB)
   def self.owned_by(user)
-    self.where(user_id: user)
+    self.where(user_id: user.id)
   end
 
   def self.find_by(criteria)
@@ -72,6 +73,29 @@ class Client < Sequel::Model(DB)
   end
 end
 
+
+# authorization
+class Authorization
+  def call(owner, record, action)
+    if Pundit.policy!(owner, record).public_send(action)
+      Success(:authorized)
+    else
+      Failure(:unauthorized)
+    end
+  end
+end
+
+class ClientPolicy
+  def initialize(current_user, client)
+    @current_user = current_user
+    @client = client
+  end
+  def delete?
+    @client.user_id == @current_user.id
+  end
+end
+
+# features
 module Feature
   module Register
     class Form
@@ -224,6 +248,37 @@ module Feature
     end
   end
 
+  module ListClients
+    class Service
+      def initialize(repo, owner)
+        @repo = repo
+        @owner = owner
+      end
+
+      def call
+        Success(@repo.owned_by(@owner).all)
+      end
+    end
+  end
+
+  module DeleteClient
+    class Service
+      def initialize(repo, authorization, owner)
+        @repo = repo
+        @owner = owner
+        @authorization = authorization
+      end
+
+      def call(client_id)
+        @repo.find_by(id: client_id).bind do |client|
+          @authorization.(@owner, client, :delete?).bind do
+            client.delete
+            Success()
+          end
+        end
+      end
+    end
+  end
 end
 
 ENV['APP_SESSION_SECRET'] ||= 'super secret' * 64
@@ -235,7 +290,9 @@ class App < Roda
   plugin :sessions, secret: ENV.delete('APP_SESSION_SECRET')
   plugin :flash
 
+
   route do |r|
+
     r.public 
 
     @success = flash['success']
@@ -301,13 +358,33 @@ class App < Roda
     end
 
     r.root do
-      @success || 'Dashboard'
+      case Feature::ListClients::Service.new(Client, current_user).call
+        in Success(*clients)
+          @clients = clients
+          view('clients/list')
+      else
+          log.warn("dashboard#get: unsupported branch")
+          r.halt(500, 'Server Error')
+      end
     end
 
     r.on 'clients' do
       r.get 'new' do
         @title = 'create client'
         view('clients/new')
+      end
+
+      r.on Integer do |client_id|
+        r.get 'delete' do
+          case Feature::DeleteClient::Service.new(Client, Authorization.new, current_user).(client_id)
+            in Success
+              flash['success'] = 'Client Deleted'
+              r.redirect '/'
+            else
+              log.warn("client#delete: unsupported branch")
+              r.halt(500, 'Server Error')
+            end
+        end
       end
 
       r.post do
